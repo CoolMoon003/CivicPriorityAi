@@ -1,0 +1,86 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
+:root {
+  --bg-void: #090c11;
+  --bg-base: #0c1017;
+  --bg-panel: #10151d;
+  --bg-panel-raised: #141a23;
+  --bg-inset: #0a0e14;
+
+  --line: rgba(210, 224, 240, 0.08);
+  --line-strong: rgba(210, 224, 240, 0.16);
+
+  --text-primary: #e7edf5;
+  --text-secondary: #93a1b4;
+  --text-tertiary: #5c6a7e;
+
+  --accent-signal: #3fd0c9; /* AI / active systems */
+  --accent-signal-dim: rgba(63, 208, 201, 0.14);
+
+  --level-high: #ef6d5b;
+  --level-high-dim: rgba(239, 109, 91, 0.14);
+  --level-medium: #e8b84b;
+  --level-medium-dim: rgba(232, 184, 75, 0.14);
+  --level-low: #6f8db0;
+  --level-low-dim: rgba(111, 141, 176, 0.14);
+  --level-success: #55c48a;
+  --level-success-dim: rgba(85, 196, 138, 0.14);
+  --level-danger: #e35b6b;
+
+  --font-ui: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+
+  --radius-sm: 3px;
+  --radius-md: 5px;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+}
+
+button,
+select,
+input {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 4px;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-signal);
+  outline-offset: 2px;
+}

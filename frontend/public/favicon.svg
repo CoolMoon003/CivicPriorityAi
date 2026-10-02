@@ -1,0 +1,4 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="CivicPriority AI location marker">
+  <path fill="#5b43c5" d="M24 2C14.6 2 7 9.6 7 19c0 12.1 17 27 17 27s17-14.9 17-27C41 9.6 33.4 2 24 2Z"/>
+  <circle cx="24" cy="19" r="7" fill="#fff"/>
+</svg>
