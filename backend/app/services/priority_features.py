@@ -11,10 +11,14 @@ from datetime import datetime, timedelta, timezone
 from backend.app.models.complaint import Complaint
 from backend.app.scoring.priority_engine import DAMAGE_SEVERITY, FACILITIES, PriorityEngine
 from backend.app.services.duplicate_service import DuplicateService
+from backend.app.services.runtime_paths import configured_project_path
 from backend.ai.detection_policy import DEFAULT_POLICY, NO_RELIABLE_DETECTION
 
 BASE_DIR = Path(__file__).resolve().parents[3]
-ROAD_FEATURES_CSV = BASE_DIR / "data" / "processed" / "vellore_road_features.csv"
+ROAD_FEATURES_CSV = configured_project_path(
+    "CIVIC_ROAD_FEATURES_CSV",
+    BASE_DIR / "data" / "processed" / "vellore_road_features.csv",
+)
 FEATURE_VERSION = "priority_features_v1"
 DAMAGE_TYPES = ("pothole", "longitudinal_crack", "transverse_crack", "alligator_crack", "unknown")
 SEVERITIES = ("low", "medium", "high", "unknown")

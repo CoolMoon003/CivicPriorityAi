@@ -1,4 +1,4 @@
-﻿# CivicPriority AI
+# CivicPriority AI
 
 ### Equity-Aware, Budget-Constrained Road Infrastructure Repair Optimization with Outcome-Based Recalibration
 
@@ -31,7 +31,7 @@ The civic priority workflow and public-data sources are described below. The roa
 
 ## Road-damage model and experiment
 
-The selected checkpoint, `models/YOLO26s_RDD_Base.pt`, is a YOLO26s detector reported by its [Hugging Face model card](https://huggingface.co/TamAko783/YOLO26s_RDD_Base) as trained on the same Unified Road Defect Dataset and its four-class schema: 0 D00 Longitudinal Crack, 1 D10 Transverse Crack, 2 D20 Alligator Crack, 3 D40 Pothole. The card reports mAP@50 0.687, mAP@50â€“95 0.372, precision 0.731, and recall 0.609 on its 4,509-image held-out validation set. These are published model-card figures, not a local rerun. The card declares AGPL-3.0; the derived dataset has mixed-source attribution terms, so consult its [dataset card](https://huggingface.co/datasets/TamAko783/Unified_Road_Defect_Dataset) and underlying source terms before redistribution.
+The selected checkpoint, `models/YOLO26s_RDD_Base.pt`, is a YOLO26s detector reported by its [Hugging Face model card](https://huggingface.co/TamAko783/YOLO26s_RDD_Base) as trained on the same Unified Road Defect Dataset and its four-class schema: 0 D00 Longitudinal Crack, 1 D10 Transverse Crack, 2 D20 Alligator Crack, 3 D40 Pothole. The card reports mAP@50 0.687, mAP@50–95 0.372, precision 0.731, and recall 0.609 on its 4,509-image held-out validation set. These are published model-card figures, not a local rerun. The card declares AGPL-3.0; the derived dataset has mixed-source attribution terms, so consult its [dataset card](https://huggingface.co/datasets/TamAko783/Unified_Road_Defect_Dataset) and underlying source terms before redistribution.
 
 The separate YOLO11s experiment on that Unified dataset was configured for 20 epochs on CPU and stopped before completion because it was taking many hours. Its available artifacts do not contain completed validation metrics or a saved checkpoint. The attempt, configuration, and visual artifacts are preserved in [`experiments/road_damage_training/`](experiments/road_damage_training/README.md); earlier RDD2022 India YOLO11 experiments are also kept separately there. This is historical experimental training evidence and is not the active detector. YOLO26 was not trained by this project; the pretrained checkpoint is used directly for inference.
 
@@ -39,7 +39,7 @@ CivicPriority AI is a Vellore road-maintenance demo that helps administrators re
 
 ## Current workflow
 
-Citizen complaint and uploaded image â†’ YOLO road-damage detection â†’ nearest OSM road matching â†’ available facility/road/district context â†’ deterministic `PriorityEngine` rule-based baseline â†’ optional RandomForest AI prediction â†’ admin review and priority queue â†’ budget optimizer â†’ technician assignment and repair â†’ recorded completion/verification outcomes â†’ future outcome-based recalibration.
+Citizen complaint and uploaded image → YOLO road-damage detection → nearest OSM road matching → available facility/road/district context → deterministic `PriorityEngine` rule-based baseline → optional RandomForest AI prediction → admin review and priority queue → budget optimizer → technician assignment and repair → recorded completion/verification outcomes → future outcome-based recalibration.
 
 ## Two separate priority signals
 
@@ -47,7 +47,7 @@ Citizen complaint and uploaded image â†’ YOLO road-damage detection â†�
 - **AI prediction:** optional `priority_model_v1`, a RandomForestRegressor trained to reproduce baseline scores from five existing complaint records. The model does not replace or overwrite baseline scores.
 - **Future outcome model:** not active. Repair completion, costs, notes, and verification are recorded in the existing repair/outcome workflow, but they do not yet define a validated numeric target for priority. More genuine outcomes and an explicit target definition are required before outcome-trained recalibration.
 
-The prototype's leave-one-out metrics are **MAE 8.623, RMSE 13.4687, RÂ² 0.2409 against baseline-derived prototype labels**. These metrics do not measure repair prediction, real-world priority accuracy, or infrastructure outcome prediction accuracy. The training sample is five complaints and should not be interpreted as generalizable performance.
+The prototype's leave-one-out metrics are **MAE 8.623, RMSE 13.4687, R² 0.2409 against baseline-derived prototype labels**. These metrics do not measure repair prediction, real-world priority accuracy, or infrastructure outcome prediction accuracy. The training sample is five complaints and should not be interpreted as generalizable performance.
 
 Model files:
 
@@ -83,7 +83,7 @@ These are the existing sources used by the application; this phase did not downl
 | Dataset | Publisher/source and link | Geographic level / period | Fields used and limits |
 |---|---|---|---|
 | Vellore road network and mapped public facilities | OpenStreetMap contributors; [ODbL and attribution](https://www.openstreetmap.org/copyright). Local extracts are built with OSMnx. | Road/network and mapped feature coverage for Vellore; the local extract timestamp is not recorded. | OSM road class, geometry, mapped length/lanes/speed where present, and mapped amenity features used for existing facility-nearby flags. OSM is community mapping and completeness varies; it is not a municipal asset register. |
-| Tamil Nadu road accidents and deaths | Tamil Nadu State Transport Authority's [Road Accident Analysis in Tamil Nadu, 2021â€“2023, Table 5](https://tnsta.gov.in/pdfpage/pdfpage_en_4LPhMMh_2024_05_29.pdf), citing SCRB; the local CSV corresponds to Vellore values 819/976/992 accidents and 246/294/328 deaths. The same resource is indexed by [OpenCity](https://data.opencity.in/dataset/tamil-nadu-road-accidents-reports/resource/764579ad-22e0-4f27-a694-34d0d2f843ea). | District/city totals for 2021â€“2023. | Yearly accident/death totals only. This is district context, never road-level evidence; later statistical releases may use changed district boundaries or revised counts. |
+| Tamil Nadu road accidents and deaths | Tamil Nadu State Transport Authority's [Road Accident Analysis in Tamil Nadu, 2021–2023, Table 5](https://tnsta.gov.in/pdfpage/pdfpage_en_4LPhMMh_2024_05_29.pdf), citing SCRB; the local CSV corresponds to Vellore values 819/976/992 accidents and 246/294/328 deaths. The same resource is indexed by [OpenCity](https://data.opencity.in/dataset/tamil-nadu-road-accidents-reports/resource/764579ad-22e0-4f27-a694-34d0d2f843ea). | District/city totals for 2021–2023. | Yearly accident/death totals only. This is district context, never road-level evidence; later statistical releases may use changed district boundaries or revised counts. |
 | Vellore Corporation ward population | [Vellore Corporation population page](https://www.tnurbantree.tn.gov.in/vellore/population/), Tamil Nadu urban local body portal. | 60 ward rows; the page does not state a reference year. | Ward male/female/total fields. No road-to-ward crosswalk exists, so these totals are not attached to individual roads or complaints. |
 | Unified Road Defect Dataset images used in synthetic demo examples | Unified dataset from the project model/dataset source records; consult the local dataset card and upstream mixed-source attribution terms before redistributing. | Images are validation samples, including multiple RDD source subsets; they are not geolocated to Vellore. | The demo refresh reads the existing labels, chooses visible examples, requires a matching YOLO26 detection, and stores a separate annotated copy. Original dataset images and label files remain unchanged. |
 
@@ -131,7 +131,7 @@ Demo repair/verification records have explicit `SYNTHETIC DEMO` notes and no rep
 
 ## Image handling
 
-Citizen uploads are stored under `data/uploads` with generated filenames and served by FastAPI at `/uploads`. When YOLO26 returns detections at or above the possible threshold, a separate annotated sidecar is written under `data/uploads/annotated`; otherwise the original image is shown with “No reliable AI detection.” The annotation boxes, labels, and confidence values come from the detector output. Unified demo originals and annotations are stored under `data/uploads/demo_unified/` and its `annotated/` subfolder.
+Citizen uploads are stored under `data/uploads` with generated filenames and served by FastAPI at `/uploads`. When YOLO26 returns detections at or above the possible threshold, a separate annotated sidecar is written under `data/uploads/annotated`; otherwise the original image is shown with �No reliable AI detection.� The annotation boxes, labels, and confidence values come from the detector output. Unified demo originals and annotations are stored under `data/uploads/demo_unified/` and its `annotated/` subfolder.
 
 Road feature extracts and other local context data are generated/downloaded artifacts and are excluded from Git. The corresponding scripts and source references are included; regenerate local inputs after reviewing each source's terms.
 
@@ -156,6 +156,7 @@ The frontend opens the role-selection screen and uses the three demo workspaces:
 
 ## Useful endpoints
 
+- `GET /health` (lightweight service check; does not run inference or query the database)
 - `POST /complaints/`
 - `GET /admin/complaints` and `GET /admin/complaints/{complaint_id}`
 - `GET /admin/priorities` and `GET /admin/priorities/{complaint_id}`
@@ -177,6 +178,10 @@ Backend settings are read from the process environment. For local development, c
 |---|---|---|
 | `CIVIC_ADMIN_DELETE_TOKEN` | Only to enable complaint deletion | Shared deletion token, minimum 32 characters. This does not authenticate other admin/API routes. |
 | `CORS_ORIGINS` | Set for a separately hosted frontend | Comma-separated exact browser origins. Local defaults allow the Vite dev server only. |
+| `CIVIC_DATA_DIR` | No | Base directory for the SQLite database, uploads, and annotations; defaults to repository `data/`. Set to a persistent mount such as `/var/data` on Render. |
+| `CIVIC_ROAD_GRAPHML` | Required for backend startup if default file is absent | Vellore OSM road graph path; defaults to `data/vellore/vellore_drive_network.graphml`. |
+| `CIVIC_ROAD_FEATURES_GEOJSON` | Required for backend startup if default file is absent | Road feature GeoJSON path; defaults to `data/processed/vellore_road_features.geojson`. |
+| `CIVIC_ROAD_FEATURES_CSV` | No | Optional road feature CSV path used by priority context; defaults to `data/processed/vellore_road_features.csv`. |
 | `DUPLICATE_DISTANCE_METERS` | No | Location warning radius; defaults to 5 metres. |
 | `CIVIC_ROAD_DAMAGE_MODEL` | No, if the default checkpoint is present | Model file path; defaults to `models/YOLO26s_RDD_Base.pt`. |
 | `CIVIC_DAMAGE_CONFIRMED_THRESHOLD` | No | Defaults to 0.25. |
@@ -185,7 +190,7 @@ Backend settings are read from the process environment. For local development, c
 | `CIVIC_DAMAGE_INFERENCE_SIZE` | No | Defaults to 640. |
 | `CIVIC_DAMAGE_FALLBACK_INFERENCE_SIZE` | No | Defaults to 1280; set to 0 to disable the conditional fallback pass. |
 
-The backend currently stores SQLite at `data/civic_priority.db` and complaint images below `data/uploads`. Keep both paths on persistent storage and back them up together. The database path and upload directory are not currently configurable by environment variable.
+By default, SQLite is stored at `data/civic_priority.db` and complaint images/annotations below `data/uploads`. Set `CIVIC_DATA_DIR` to a persistent directory to relocate all three together. Complaint image database keys remain `data/uploads/...` and resolve under the configured data directory, preserving compatibility with existing local records.
 
 The frontend accepts `VITE_API_BASE_URL`, which is public browser configuration and must contain only the API origin, for example `https://api.example.org`. Set it in the Vercel project environment for production. Local development defaults to `http://127.0.0.1:8000`. Never place credentials or deletion tokens in a `VITE_` variable.
 
@@ -220,6 +225,19 @@ npm.cmd run build
 ```
 
 ## Deployment guidance
+
+### Demo deployment: Vercel + Render
+
+This is a hackathon/demo deployment, not a municipal production service.
+
+- **Frontend:** deploy `frontend/` to Vercel as a Vite static site. Build with `npm run build`, output `dist`, and set the public `VITE_API_BASE_URL` to the Render API origin.
+- **Backend:** deploy the repository root to Render with Python 3.11 (selected by `.python-version`), build command `pip install -r requirements.txt`, and start command `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`. The module is `backend.app.main` and its ASGI object is `app`.
+- **CORS:** set `CORS_ORIGINS` on Render to the exact Vercel origin, such as `https://your-project.vercel.app`; do not use `*`. Local development origins remain the default when the variable is unset.
+- **Persistent files:** attach a Render persistent disk and set `CIVIC_DATA_DIR` to its mount path (for example `/var/data`). This keeps the SQLite database, citizen uploads, and generated annotations across restarts. SQLite and local file storage are prototype storage, not appropriate for real citizen data or multi-instance production use.
+- **Road context inputs:** the backend currently loads the Vellore road graph and road-feature GeoJSON during import. They are excluded from Git, so provision them on the service disk and set `CIVIC_ROAD_GRAPHML` and `CIVIC_ROAD_FEATURES_GEOJSON` to their paths. The optional `CIVIC_ROAD_FEATURES_CSV` enables the road-feature lookup used in priority context. Without the required graph and GeoJSON files, priority scoring degrades gracefully but the API starts successfully. Review OSM attribution/ODbL terms when provisioning these extracts.
+- **Model:** `models/YOLO26s_RDD_Base.pt` is intentionally excluded from Git. The detector does not download it per request and the app can start without it; road-damage inference remains unavailable until the checkpoint is separately provisioned in storage and `CIVIC_ROAD_DAMAGE_MODEL` points to it. Follow the upstream model license and dataset terms; no public download URL is implied here.
+
+Production citizen service would require real authentication/authorization and persistent database/object storage. Do not use this SQLite/local-filesystem demo with real citizen data.
 
 ### Vercel frontend
 

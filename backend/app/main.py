@@ -1,10 +1,10 @@
-from pathlib import Path
 import os
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from backend.app.api.admin import router as admin_router
 from backend.app.database.database import init_db
+from backend.app.services.runtime_paths import UPLOAD_DIR
 from backend.app.api.complaints import router as complaints_router
 from backend.app.api.technician import router as technician_router
 from backend.app.api.outcomes import router as outcomes_router
@@ -26,16 +26,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve citizen-uploaded complaint images (already saved by
-# backend/app/api/complaints.py to <project_root>/data/uploads) so the
-# admin dashboard can display them. This does not change where or how
+# Serve citizen-uploaded complaint images and annotations from the configured
+# runtime upload directory so the admin dashboard can display them. This
+# does not change how images are storedâ€”it only exposes the directory over HTTP.
 # images are stored — it only exposes the existing directory over HTTP.
-_UPLOAD_DIR = Path(__file__).resolve().parents[2] / "data" / "uploads"
-_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
 app.mount(
     "/uploads",
-    StaticFiles(directory=_UPLOAD_DIR),
+    StaticFiles(directory=UPLOAD_DIR),
     name="uploads",
 )
 
@@ -68,3 +65,8 @@ def root():
         "name": "CivicPriorityAI",
         "status": "running",
     }
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}

@@ -16,12 +16,19 @@ from backend.app.scoring.priority_engine import PriorityEngine
 from backend.app.services.duplicate_service import DuplicateService
 from backend.app.services.annotated_image_service import (
     existing_annotated_path,
-    project_relative_path,
     render_annotated_image,
 )
 from backend.app.services.road_matcher import RoadMatcher
 from backend.app.services.priority_predictor import predict_new_complaint
 from backend.app.services.priority_features import recent_match_count
+from backend.app.services.runtime_paths import (
+    PROJECT_ROOT as BASE_DIR,
+    UPLOAD_DIR,
+    configured_project_path,
+    resolve_stored_path,
+    stored_path_key,
+    upload_relative_path,
+)
 
 
 router = APIRouter(
@@ -31,23 +38,18 @@ router = APIRouter(
 logger = logging.getLogger(__name__)
 
 
-BASE_DIR = Path(__file__).resolve().parents[3]
-
-UPLOAD_DIR = BASE_DIR / "data" / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
 ROAD_GRAPH = (
-    BASE_DIR
-    / "data"
-    / "vellore"
-    / "vellore_drive_network.graphml"
+    configured_project_path(
+        "CIVIC_ROAD_GRAPHML",
+        BASE_DIR / "data" / "vellore" / "vellore_drive_network.graphml",
+    )
 )
 
 ROAD_FEATURES = (
-    BASE_DIR
-    / "data"
-    / "processed"
-    / "vellore_road_features.geojson"
+    configured_project_path(
+        "CIVIC_ROAD_FEATURES_GEOJSON",
+        BASE_DIR / "data" / "processed" / "vellore_road_features.geojson",
+    )
 )
 
 
@@ -133,7 +135,7 @@ async def create_complaint(
                 if prior.image_sha256:
                     continue
                 try:
-                    prior_path = (BASE_DIR / prior.image_path).resolve()
+                    prior_path = resolve_stored_path(prior.image_path, upload_dir=UPLOAD_DIR).resolve()
                     prior_path.relative_to(UPLOAD_DIR.resolve())
                     if prior_path.is_file() and hashlib.sha256(prior_path.read_bytes()).hexdigest() == image_sha256:
                         matches.append(prior)
@@ -168,9 +170,7 @@ async def create_complaint(
         destination = UPLOAD_DIR / filename
         destination.write_bytes(content)
 
-        image_path = str(
-            destination.relative_to(BASE_DIR)
-        )
+        image_path = stored_path_key(destination, upload_dir=UPLOAD_DIR)
 
     # --------------------------------------------------
     # 2. AI damage analysis
@@ -182,7 +182,8 @@ async def create_complaint(
     annotation_status = "no_image" if not image_path else "unavailable"
     if image_path:
         try:
-            detection = detector.predict(str(BASE_DIR / image_path))
+            actual_image_path = resolve_stored_path(image_path, upload_dir=UPLOAD_DIR)
+            detection = detector.predict(str(actual_image_path))
         except Exception as exc:
             logger.exception("Road-damage inference failed for complaint upload")
             detection_error = "Image analysis unavailable; manual verification is required."
@@ -196,10 +197,10 @@ async def create_complaint(
         else:
             if detection.detections:
                 try:
-                    annotated_path = render_annotated_image(BASE_DIR / image_path, detection)
+                    annotated_path = render_annotated_image(actual_image_path, detection)
                     if annotated_path is None:
                         raise RuntimeError("Detector returned boxes but no annotation image was saved")
-                    annotated_image_path = project_relative_path(annotated_path, BASE_DIR)
+                    annotated_image_path = stored_path_key(annotated_path, upload_dir=UPLOAD_DIR)
                     annotation_status = "generated"
                 except Exception:
                     logger.exception("Could not generate detector annotation image")
@@ -306,7 +307,7 @@ async def create_complaint(
         "image_path": complaint.image_path,
         "annotated_image_path": annotated_image_path,
         "annotated_image_url": (
-            f"/uploads/{Path(annotated_image_path).relative_to(Path('data') / 'uploads').as_posix()}"
+            f"/uploads/{upload_relative_path(resolve_stored_path(annotated_image_path, upload_dir=UPLOAD_DIR), upload_dir=UPLOAD_DIR)}"
             if annotated_image_path else None
         ),
         "annotation_status": annotation_status,

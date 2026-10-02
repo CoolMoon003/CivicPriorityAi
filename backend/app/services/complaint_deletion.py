@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 
 from backend.app.services.annotated_image_service import annotated_path_for
+from backend.app.services.runtime_paths import resolve_stored_path, upload_dir_for
 
 
 _OWNED_UPLOAD_NAME = re.compile(r"^[0-9a-f]{32}\.(?:jpg|jpeg|png|webp)$", re.IGNORECASE)
@@ -28,10 +29,8 @@ def safe_complaint_uploads_to_remove(
     """
     if not image_path or shared_reference:
         return []
-    root = (project_root / "data" / "uploads").resolve()
-    candidate = Path(image_path)
-    if not candidate.is_absolute():
-        candidate = project_root / candidate
+    root = upload_dir_for(project_root).resolve()
+    candidate = resolve_stored_path(image_path, project_root)
     try:
         resolved = candidate.resolve()
         if resolved.parent != root or not _OWNED_UPLOAD_NAME.fullmatch(resolved.name):

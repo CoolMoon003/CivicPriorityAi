@@ -5,6 +5,7 @@ from pathlib import Path
 
 from backend.ai.road_damage_detector import DamageDetection, Detection
 from backend.ai.detection_policy import DEFAULT_POLICY, NO_RELIABLE_DETECTION
+from backend.app.services.runtime_paths import resolve_stored_path, stored_path_key
 
 
 CLASS_COLORS = {
@@ -99,11 +100,9 @@ def project_relative_path(path: Path, project_root: Path) -> str:
 def existing_annotated_path(image_path: str | None, project_root: Path) -> str | None:
     if not image_path:
         return None
-    original = Path(image_path)
-    if not original.is_absolute():
-        original = project_root / original
+    original = resolve_stored_path(image_path, project_root)
     candidate = annotated_path_for(original)
     try:
-        return project_relative_path(candidate, project_root) if candidate.is_file() else None
+        return stored_path_key(candidate, project_root) if candidate.is_file() else None
     except ValueError:
         return None

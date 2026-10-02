@@ -1,14 +1,10 @@
-from pathlib import Path
-
 from sqlalchemy import create_engine, inspect, text
 import hashlib
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+from backend.app.services.runtime_paths import DATA_DIR, PROJECT_ROOT, resolve_stored_path
 
-BASE_DIR = Path(__file__).resolve().parents[3]
-DATA_DIR = BASE_DIR / "data"
-
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+BASE_DIR = PROJECT_ROOT
 
 DATABASE_URL = f"sqlite:///{DATA_DIR / 'civic_priority.db'}"
 
@@ -51,7 +47,7 @@ def init_db():
         for complaint in session.query(Complaint).filter(
             Complaint.image_path.is_not(None), Complaint.image_sha256.is_(None)
         ).yield_per(100):
-            path = (BASE_DIR / complaint.image_path).resolve()
+            path = resolve_stored_path(complaint.image_path).resolve()
             try:
                 path.relative_to(DATA_DIR.resolve())
                 if path.is_file():
