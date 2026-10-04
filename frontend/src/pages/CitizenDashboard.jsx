@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { Activity, ArrowLeft, ClipboardList, FilePlus2, LogOut, MapPin, RefreshCw, UserRound } from "lucide-react";
+import { Activity, ArrowLeft, Camera, ClipboardList, FilePlus2, ImageUp, LogOut, MapPin, RefreshCw, UserRound, X } from "lucide-react";
 import { complaintImageUrl as imageUrl, createCitizenProfile, getCitizenComplaint, getCitizenComplaints, getCitizenProfile, submitComplaint } from "../api.js";
 import { PriorityBadge, StatusBadge } from "../components/StatusBadge.jsx";
 import { damageSeverityLabel, detectionStateLabel, roadDamageLabel, yoloConfidenceLabel } from "../utils/complaintLabels.js";
 
 const PROFILE_KEY = "civicpriority.citizenProfile";
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const ACCEPTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const ACCEPTED_IMAGE_EXTENSIONS = /\.(jpe?g|png|webp)$/i;
 
 function Metric({ label, value, tone = "" }) {
   return <div className={`citizen-metric ${tone}`}><span>{label}</span><strong>{value}</strong></div>;
@@ -21,11 +24,13 @@ export function CitizenDashboard({ onBack }) {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [form, setForm] = useState({ description: "", latitude: "", longitude: "" });
   const [image, setImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [result, setResult] = useState(null);
+  const [duplicateWarning, setDuplicateWarning] = useState(null);
 
   const loadComplaints = useCallback(async (userId) => {
     setLoading(true);
@@ -55,7 +60,7 @@ export function CitizenDashboard({ onBack }) {
             const current = await getCitizenProfile(stored.id);
             if (!cancelled) setProfile(current);
           } catch (err) {
-            if (/Request failed \(404\)/.test(err.message || "")) {
+            if (err.status === 404) {
               localStorage.removeItem(PROFILE_KEY);
             } else if (!cancelled) {
               setError(err.message || "Could not restore citizen profile.");
@@ -88,6 +93,17 @@ export function CitizenDashboard({ onBack }) {
     return () => { cancelled = true; };
   }, [profile?.id, selectedId]);
 
+  useEffect(() => {
+    if (!image) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize the preview with the selected file.
+      setImagePreview("");
+      return undefined;
+    }
+    const objectUrl = URL.createObjectURL(image);
+    setImagePreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [image]);
+
   async function handleProfileSubmit(event) {
     event.preventDefault();
     setError("");
@@ -103,7 +119,7 @@ export function CitizenDashboard({ onBack }) {
     }
   }
 
-  async function handleSubmit(event) {
+  async function handleSubmit(event, continueAsSeparate = false) {
     event.preventDefault();
     if (!form.latitude || !form.longitude) {
       setError("Latitude and longitude are required.");
@@ -113,10 +129,15 @@ export function CitizenDashboard({ onBack }) {
     setError("");
     setNotice("");
     setResult(null);
+    setDuplicateWarning(null);
     try {
       const response = await submitComplaint({
-        ...form, image, userId: profile.id,
+        ...form, image, userId: profile.id, continueAsSeparate,
       });
+      if (response?.requires_confirmation) {
+        setDuplicateWarning(response);
+        return;
+      }
       setResult(response);
       setNotice(`Complaint #${response.complaint_id} submitted successfully.`);
       setImage(null);
@@ -128,6 +149,37 @@ export function CitizenDashboard({ onBack }) {
     } finally {
       setSubmitting(false);
     }
+
+  }
+
+  function handleImageSelected(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const isSupportedType = ACCEPTED_IMAGE_TYPES.has(file.type) || ACCEPTED_IMAGE_EXTENSIONS.test(file.name);
+    if (!isSupportedType) {
+      setImage(null);
+      setError("Please choose a JPG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setImage(null);
+      setError("That image is larger than the 10 MB upload limit. Choose a smaller image.");
+      return;
+    }
+
+    setError("");
+    setImage(file);
+  }
+
+  function handleContinueDuplicate() {
+    handleSubmit({ preventDefault() {} }, true);
+  }
+
+  function removeImage() {
+    setImage(null);
+    setError("");
   }
 
   function chooseTab(tab) {
@@ -188,6 +240,17 @@ export function CitizenDashboard({ onBack }) {
 
         {error && <div className="error-banner strong citizen-alert">{error}</div>}
         {notice && <div className="citizen-notice">{notice}</div>}
+        {duplicateWarning && (
+          <div className="panel citizen-duplicate-warning" role="alert">
+            <strong>Possible nearby report</strong>
+            <p>{duplicateWarning.message}</p>
+            <p>Existing complaint{duplicateWarning.possible_duplicates?.length === 1 ? "" : "s"}: {duplicateWarning.possible_duplicates?.map((item) => `#${item.complaint_id}`).join(", ")}</p>
+            <div className="citizen-warning-actions">
+              <button type="button" className="citizen-refresh" onClick={() => setDuplicateWarning(null)}>Cancel</button>
+              <button type="button" className="citizen-submit" disabled={submitting} onClick={handleContinueDuplicate}>Submit as separate issue</button>
+            </div>
+          </div>
+        )}
 
         {activeTab === "dashboard" && (
           <section className="citizen-dashboard-content">
@@ -220,7 +283,36 @@ export function CitizenDashboard({ onBack }) {
                   if (!navigator.geolocation) { setError("Location is not supported by this browser."); return; }
                   navigator.geolocation.getCurrentPosition((position) => setForm((prev) => ({ ...prev, latitude: position.coords.latitude, longitude: position.coords.longitude })), () => setError("Location unavailable. Enter coordinates manually."));
                 }}><MapPin size={14} />Use my location</button>
-                <label className="citizen-field"><span>Road image (optional)</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setImage(e.target.files?.[0] || null)} />{image && <small>{image.name} · {(image.size / 1024).toFixed(0)} KB</small>}</label>
+                <div className="citizen-field">
+                  <span>Road image (optional)</span>
+                  <div className="citizen-upload-card">
+                    <div className="citizen-upload-copy">
+                      <strong>{image ? "Photo ready to submit" : "Add a photo of the road issue"}</strong>
+                      <small>{image ? `${image.name} · ${(image.size / 1024).toFixed(0)} KB` : "A clear photo helps the team assess the issue faster."}</small>
+                    </div>
+                    {imagePreview && (
+                      <div className="citizen-image-preview">
+                        <img src={imagePreview} alt="Selected road issue preview" />
+                        <button type="button" className="citizen-image-remove" onClick={removeImage} aria-label="Remove selected image" title="Remove image">
+                          <X size={16} />
+                        </button>
+                      </div>
+                    )}
+                    <div className="citizen-upload-actions">
+                      <label className="citizen-upload-option">
+                        <Camera size={18} />
+                        <span>{image ? "Retake photo" : "Take photo"}</span>
+                        <input type="file" accept="image/*" capture="environment" onChange={handleImageSelected} />
+                      </label>
+                      <label className="citizen-upload-option">
+                        <ImageUp size={18} />
+                        <span>{image ? "Change image" : "Choose from gallery"}</span>
+                        <input type="file" accept="image/*" onChange={handleImageSelected} />
+                      </label>
+                    </div>
+                    <small className="citizen-upload-note">JPG, PNG, or WebP · up to 10 MB</small>
+                  </div>
+                </div>
                 <button className="citizen-submit" type="submit" disabled={submitting}>{submitting ? "Uploading and analyzing…" : "Submit road issue"}</button>
               </form>
             </div>

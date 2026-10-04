@@ -220,7 +220,7 @@ def knapsack_01(
 
     # Cost of each candidate, quantized into `unit`-sized buckets.
     scaled_costs = [
-        min(states, max(0, round(c.estimated_cost / unit)))
+        min(states, max(0, math.ceil(c.estimated_cost / unit)))
         for c in candidates
     ]
 

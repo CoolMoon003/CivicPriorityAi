@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from math import radians, sin, cos, sqrt, atan2
 
 from sqlalchemy.orm import Session
@@ -59,9 +60,11 @@ class DuplicateService:
         road_key: int | None = None,
     ) -> list[dict]:
 
+        cutoff = datetime.utcnow() - timedelta(days=self.RECENT_DAYS)
         complaints = (
             db.query(Complaint)
-            .filter(Complaint.status != "RESOLVED")
+            .filter(Complaint.status.in_(("OPEN", "ASSIGNED", "IN_PROGRESS")))
+            .filter(Complaint.created_at >= cutoff)
             .order_by(Complaint.created_at.desc())
             .all()
         )

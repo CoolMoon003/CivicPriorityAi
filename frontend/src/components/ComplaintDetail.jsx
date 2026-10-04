@@ -49,16 +49,18 @@ export function ComplaintDetail({
   const [verificationBusy, setVerificationBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   async function handleDelete() {
     if (!onDelete) return;
-    const token = window.prompt("Enter the configured admin deletion token.");
-    if (token === null || !token.trim()) return;
-    if (!window.confirm(`Permanently delete complaint #${complaintId} and its repair/outcome records?`)) return;
+    if (deleteConfirmation !== "DELETE") return;
     setDeleteBusy(true);
     setDeleteError("");
     try {
-      await onDelete(complaintId, token.trim());
+      await onDelete(complaintId);
+      setDeleteDialogOpen(false);
+      setDeleteConfirmation("");
     } catch (err) {
       setDeleteError(err.message || "Complaint could not be deleted.");
     } finally {
@@ -143,7 +145,29 @@ export function ComplaintDetail({
       {loading && <div className="detail-loading">Loading record…</div>}
       {error && <div className="error-banner">{error}</div>}
       {deleteError && <div className="error-banner">{deleteError}</div>}
-      {detail && onDelete && <button type="button" className="admin-view-btn danger" disabled={deleteBusy} onClick={handleDelete}><Trash2 size={14} />{deleteBusy ? "Deleting…" : "Delete complaint"}</button>}
+      {detail && onDelete && <button type="button" className="admin-view-btn danger" disabled={deleteBusy} onClick={() => { setDeleteConfirmation(""); setDeleteError(""); setDeleteDialogOpen(true); }}><Trash2 size={14} />Delete complaint</button>}
+      {detail && onDelete && deleteDialogOpen && (
+        <div className="delete-confirmation" role="dialog" aria-modal="true" aria-labelledby="delete-confirmation-title">
+          <div className="delete-confirmation-card">
+            <h3 id="delete-confirmation-title">Delete complaint permanently?</h3>
+            <p>Complaint #{complaintId} and its associated uploaded or annotated images may be permanently deleted.</p>
+            <label htmlFor="delete-confirmation-input">Type <strong>DELETE</strong> to confirm.</label>
+            <input
+              id="delete-confirmation-input"
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              autoComplete="off"
+              autoFocus
+            />
+            <div className="delete-confirmation-actions">
+              <button type="button" className="admin-view-btn" onClick={() => { setDeleteDialogOpen(false); setDeleteConfirmation(""); }}>Cancel</button>
+              <button type="button" className="admin-view-btn danger" disabled={deleteConfirmation !== "DELETE" || deleteBusy} onClick={handleDelete}>
+                {deleteBusy ? "Deleting…" : "Delete permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {detail && !loading && (
         <div className="detail-body">

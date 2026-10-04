@@ -18,15 +18,16 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     let detail = "";
+    let body = null;
     try {
-      const body = await res.json();
+      body = await res.json();
       detail = body?.detail ? JSON.stringify(body.detail) : "";
     } catch {
       /* ignore parse errors */
     }
     const error = new Error(detail || `Request failed (${res.status}) ${path}`);
     error.status = res.status;
-    try { error.detail = JSON.parse(detail); } catch { error.detail = null; }
+    error.detail = typeof body?.detail === "object" ? body.detail : null;
     throw error;
   }
 
@@ -56,10 +57,9 @@ export function updateComplaintStatus(id, status) {
   );
 }
 
-export function deleteComplaint(id, adminToken) {
+export function deleteComplaint(id) {
   return request(`/admin/complaints/${encodeURIComponent(id)}`, {
     method: "DELETE",
-    headers: { "X-Civic-Admin-Token": adminToken },
   });
 }
 

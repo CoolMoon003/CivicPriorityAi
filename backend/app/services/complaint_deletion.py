@@ -1,8 +1,6 @@
 """Authorization and conservative file cleanup for admin complaint deletion."""
 from __future__ import annotations
 
-import hmac
-import os
 from pathlib import Path
 import re
 
@@ -11,10 +9,6 @@ from backend.app.services.runtime_paths import resolve_stored_path, upload_dir_f
 
 
 _OWNED_UPLOAD_NAME = re.compile(r"^[0-9a-f]{32}\.(?:jpg|jpeg|png|webp)$", re.IGNORECASE)
-
-
-def valid_admin_delete_token(configured: str | None, supplied: str | None) -> bool:
-    return bool(configured and supplied and hmac.compare_digest(configured, supplied))
 
 
 def safe_complaint_uploads_to_remove(

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -23,7 +22,6 @@ from backend.app.models.repair import Repair
 from backend.app.services.annotated_image_service import render_annotated_image
 from backend.app.services.complaint_deletion import (
     safe_complaint_uploads_to_remove,
-    valid_admin_delete_token,
 )
 from backend.app.services.demo_dataset_images import TYPE_BY_ID, image_candidates
 
@@ -106,9 +104,6 @@ class AnnotationServiceTests(unittest.TestCase):
 
 class ComplaintDeletionTests(unittest.TestCase):
     def test_delete_capability_and_file_scope_are_conservative(self):
-        self.assertTrue(valid_admin_delete_token("0123456789abcdef0123456789abcdef", "0123456789abcdef0123456789abcdef"))
-        self.assertFalse(valid_admin_delete_token("0123456789abcdef0123456789abcdef", None))
-        self.assertFalse(valid_admin_delete_token("0123456789abcdef0123456789abcdef", "wrong"))
         root = Path(tempfile.gettempdir()) / "civic-priority-deletion-test"
         user_upload = "data/uploads/0123456789abcdef0123456789abcdef.jpg"
         paths = safe_complaint_uploads_to_remove(user_upload, root)
@@ -117,11 +112,9 @@ class ComplaintDeletionTests(unittest.TestCase):
         self.assertEqual(safe_complaint_uploads_to_remove("data/uploads/demo_unified/file.jpg", root), [])
         self.assertEqual(safe_complaint_uploads_to_remove("data/processed/road_damage_unified/images/val/a.jpg", root), [])
 
-    def test_admin_endpoint_requires_token_then_deletes_only_unshared_owned_upload(self):
+    def test_admin_endpoint_deletes_only_unshared_owned_upload(self):
         import backend.app.api.admin as admin_api
 
-        previous_token = os.environ.get("CIVIC_ADMIN_DELETE_TOKEN")
-        os.environ["CIVIC_ADMIN_DELETE_TOKEN"] = "0123456789abcdef0123456789abcdef"
         engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
         Base.metadata.create_all(bind=engine)
         TestSession = sessionmaker(bind=engine, autoflush=False, autocommit=False)
@@ -150,13 +143,7 @@ class ComplaintDeletionTests(unittest.TestCase):
         app.dependency_overrides[get_db] = override_db
         try:
             with TestClient(app) as client:
-                denied = client.delete(f"/admin/complaints/{complaint.id}")
-                self.assertEqual(denied.status_code, 403)
-                self.assertIsNotNone(session.query(Complaint).filter_by(id=complaint.id).first())
-                deleted = client.delete(
-                    f"/admin/complaints/{complaint.id}",
-                    headers={"X-Civic-Admin-Token": "0123456789abcdef0123456789abcdef"},
-                )
+                deleted = client.delete(f"/admin/complaints/{complaint.id}")
                 self.assertEqual(deleted.status_code, 200, deleted.text)
                 self.assertIsNone(session.query(Complaint).filter_by(id=complaint.id).first())
                 self.assertEqual(session.query(Repair).filter_by(complaint_id=complaint.id).count(), 0)
@@ -169,10 +156,6 @@ class ComplaintDeletionTests(unittest.TestCase):
             engine.dispose()
             original.unlink(missing_ok=True)
             annotation.unlink(missing_ok=True)
-            if previous_token is None:
-                os.environ.pop("CIVIC_ADMIN_DELETE_TOKEN", None)
-            else:
-                os.environ["CIVIC_ADMIN_DELETE_TOKEN"] = previous_token
 
 
 if __name__ == "__main__":

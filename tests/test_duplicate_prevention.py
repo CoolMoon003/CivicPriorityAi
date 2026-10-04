@@ -124,6 +124,28 @@ class DuplicatePreventionTests(unittest.TestCase):
         self.assertEqual(response.json()["detail"]["existing_complaint_id"], prior.id)
         self.assertEqual(prior.image_sha256, hashlib.sha256(self.image_bytes).hexdigest())
 
+    def test_upload_rejects_unsupported_extension(self):
+        response = self.post(image=b"not-an-image", filename="../../outside.gif")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Unsupported image format", response.json()["detail"])
+        self.assertEqual(list(self.upload_dir.iterdir()), [])
+
+    def test_upload_rejects_oversized_content(self):
+        response = self.post(image=b"x" * (10 * 1024 * 1024 + 1), filename="large.png")
+        self.assertEqual(response.status_code, 413)
+        self.assertIn("10 MB", response.json()["detail"])
+        self.assertEqual(list(self.upload_dir.iterdir()), [])
+
+    def test_upload_ignores_path_traversal_filename(self):
+        with patch.object(api.road_matcher, "match", return_value={"u": None, "v": None, "key": None, "road_name": None, "highway": None}), \
+             patch.object(api.detector, "predict", side_effect=RuntimeError("test detector")):
+            response = self.post(image=self.image_bytes, filename="../../outside.png", lat=13, lon=79)
+        self.assertEqual(response.status_code, 200, response.text)
+        stored = [path for path in self.upload_dir.iterdir() if path.is_file()]
+        self.assertEqual(len(stored), 1)
+        self.assertNotEqual(stored[0].name, "outside.png")
+        self.assertEqual(stored[0].parent.resolve(), self.upload_dir.resolve())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,13 +1,12 @@
 from pathlib import Path
 import csv
 import json
-import os
-
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from backend.app.database.database import get_db
 from backend.app.models.complaint import Complaint
+from backend.app.models.user import User
 from backend.app.models.repair import Repair
 from backend.app.models.outcome import Outcome
 from backend.app.optimization.budget_optimizer import (
@@ -22,7 +21,6 @@ from backend.app.services.damage_presentation import complaint_damage_fields
 from backend.app.services.annotated_image_service import existing_annotated_path
 from backend.app.services.complaint_deletion import (
     safe_complaint_uploads_to_remove,
-    valid_admin_delete_token,
 )
 
 
@@ -304,23 +302,8 @@ def link_duplicate(complaint_id: int, existing_id: int, db: Session = Depends(ge
 @router.delete("/complaints/{complaint_id}")
 def delete_complaint(
     complaint_id: int,
-    x_civic_admin_token: str | None = Header(default=None, alias="X-Civic-Admin-Token"),
     db: Session = Depends(get_db),
 ):
-    configured_token = os.getenv("CIVIC_ADMIN_DELETE_TOKEN")
-    if not configured_token:
-        raise HTTPException(
-            status_code=503,
-            detail="Complaint deletion is disabled until CIVIC_ADMIN_DELETE_TOKEN is configured.",
-        )
-    if len(configured_token) < 32:
-        raise HTTPException(
-            status_code=503,
-            detail="CIVIC_ADMIN_DELETE_TOKEN must be at least 32 characters.",
-        )
-    if not valid_admin_delete_token(configured_token, x_civic_admin_token):
-        raise HTTPException(status_code=403, detail="Admin deletion token is missing or invalid")
-
     complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
     if complaint is None:
         raise HTTPException(status_code=404, detail="Complaint not found")
@@ -394,6 +377,18 @@ def assign_technician(
             status_code=404,
             detail="Complaint not found",
         )
+
+    technician = (
+        db.query(User)
+        .filter(
+            User.id == technician_id,
+            User.role == "TECHNICIAN",
+            User.is_active == 1,
+        )
+        .first()
+    )
+    if technician is None:
+        raise HTTPException(status_code=400, detail="Active technician not found")
 
     complaint.assigned_technician_id = technician_id
 

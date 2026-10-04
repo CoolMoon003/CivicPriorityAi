@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import unittest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -24,8 +23,6 @@ class DuplicateLinkAdminTests(unittest.TestCase):
         self.app.include_router(admin_api.router)
         self.app.dependency_overrides[get_db] = lambda: self.session
         self.client = TestClient(self.app)
-        self.previous_token = os.environ.get("CIVIC_ADMIN_DELETE_TOKEN")
-        os.environ["CIVIC_ADMIN_DELETE_TOKEN"] = "test-only-token-0123456789abcdef"
         self.original = Complaint(latitude=12, longitude=79, status="OPEN")
         self.duplicate = Complaint(latitude=12, longitude=79, status="OPEN")
         self.session.add_all([self.original, self.duplicate])
@@ -39,11 +36,6 @@ class DuplicateLinkAdminTests(unittest.TestCase):
         self.session.close()
         Base.metadata.drop_all(bind=self.engine)
         self.engine.dispose()
-        if self.previous_token is None:
-            os.environ.pop("CIVIC_ADMIN_DELETE_TOKEN", None)
-        else:
-            os.environ["CIVIC_ADMIN_DELETE_TOKEN"] = self.previous_token
-
     def test_link_preserves_records_and_prevents_deleting_link_target(self):
         linked = self.client.patch(f"/admin/complaints/{self.duplicate.id}/duplicate-of/{self.original.id}")
         self.assertEqual(linked.status_code, 200, linked.text)
@@ -51,10 +43,7 @@ class DuplicateLinkAdminTests(unittest.TestCase):
         self.assertEqual(self.session.query(Repair).filter_by(id=self.repair.id).count(), 1)
         self.assertEqual(self.session.query(Outcome).filter_by(id=self.outcome.id).count(), 1)
 
-        deletion = self.client.delete(
-            f"/admin/complaints/{self.original.id}",
-            headers={"X-Civic-Admin-Token": os.environ["CIVIC_ADMIN_DELETE_TOKEN"]},
-        )
+        deletion = self.client.delete(f"/admin/complaints/{self.original.id}")
         self.assertEqual(deletion.status_code, 409, deletion.text)
         self.assertIsNotNone(self.session.query(Complaint).filter_by(id=self.original.id).first())
         self.assertEqual(self.duplicate.duplicate_of_id, self.original.id)

@@ -1,6 +1,7 @@
 from io import BytesIO
 import hashlib
 import logging
+import math
 from pathlib import Path
 from uuid import uuid4
 
@@ -79,6 +80,11 @@ async def create_complaint(
     continue_as_separate: bool = Form(False),
     db: Session = Depends(get_db),
 ):
+    if not math.isfinite(latitude) or not -90 <= latitude <= 90:
+        raise HTTPException(status_code=422, detail="Latitude must be a finite value between -90 and 90")
+    if not math.isfinite(longitude) or not -180 <= longitude <= 180:
+        raise HTTPException(status_code=422, detail="Longitude must be a finite value between -180 and 180")
+
     citizen = None
     if user_id is not None:
         citizen = db.query(User).filter(User.id == user_id, User.is_active == 1).first()

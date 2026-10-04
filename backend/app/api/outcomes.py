@@ -1,4 +1,5 @@
 from datetime import datetime
+import math
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -23,6 +24,9 @@ def create_repair(
     repair_cost: float | None = None,
     db: Session = Depends(get_db),
 ):
+    if repair_cost is not None and (not math.isfinite(repair_cost) or repair_cost < 0):
+        raise HTTPException(status_code=422, detail="Repair cost must be a finite, non-negative value")
+
     complaint = (
         db.query(Complaint)
         .filter(Complaint.id == complaint_id)

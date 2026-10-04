@@ -119,8 +119,8 @@ function App() {
     catch (err) { setError(err.message || "Failed to update status."); }
   }
 
-  async function handleDeleteComplaint(complaintId, adminToken) {
-    await apiDeleteComplaint(complaintId, adminToken);
+  async function handleDeleteComplaint(complaintId) {
+    await apiDeleteComplaint(complaintId);
     setSelectedId(null);
     await loadAll(true);
   }
@@ -147,7 +147,7 @@ function App() {
   const totalTechnicians = technicians.length;
 
   return <div className="app admin-app">
-    <Sidebar activeSection={activeSection} onNavigate={(id) => sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" })} connected={connected} onSwitchRole={switchRole} />
+    <Sidebar activeSection={activeSection} onNavigate={(id) => { setActiveSection(id); sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" }); }} connected={connected} onSwitchRole={switchRole} />
     <div className="main-column">
       <TopBar connected={connected} lastUpdated={lastUpdated} refreshing={refreshing} onRefresh={() => loadAll(true)} />
       <main className="content admin-content">

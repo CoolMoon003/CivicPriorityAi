@@ -131,7 +131,7 @@ Demo repair/verification records have explicit `SYNTHETIC DEMO` notes and no rep
 
 ## Image handling
 
-Citizen uploads are stored under `data/uploads` with generated filenames and served by FastAPI at `/uploads`. When YOLO26 returns detections at or above the possible threshold, a separate annotated sidecar is written under `data/uploads/annotated`; otherwise the original image is shown with “No reliable AI detection.” The annotation boxes, labels, and confidence values come from the detector output. Unified demo originals and annotations are stored under `data/uploads/demo_unified/` and its `annotated/` subfolder.
+Citizen uploads are stored under `data/uploads` with generated filenames and served by FastAPI at `/uploads`. When YOLO26 returns detections at or above the possible threshold, a separate annotated sidecar is written under `data/uploads/annotated`; otherwise the original image is shown with ï¿½No reliable AI detection.ï¿½ The annotation boxes, labels, and confidence values come from the detector output. Unified demo originals and annotations are stored under `data/uploads/demo_unified/` and its `annotated/` subfolder.
 
 Road feature extracts and other local context data are generated/downloaded artifacts and are excluded from Git. The corresponding scripts and source references are included; regenerate local inputs after reviewing each source's terms.
 
@@ -167,16 +167,15 @@ The frontend opens the role-selection screen and uses the three demo workspaces:
 
 ## Complaint deletion
 
-The admin delete endpoint removes only the selected complaint and its associated repair/outcome rows. It removes image files only when the path is a generated UUID-named direct citizen upload, no other complaint references it, and the file is under `data/uploads`; dataset and demo assets are retained. Deletion requires `CIVIC_ADMIN_DELETE_TOKEN` configured in the backend environment (at least 32 characters) and the matching `X-Civic-Admin-Token` header. Generate a local secret with Python `secrets.token_urlsafe(32)`, set it before starting the backend, and enter it in the admin confirmation prompt. The admin detail UI prompts for this token and asks for confirmation. Citizen and technician views have no delete action. The project role picker is not authentication; protect the token and do not expose it in the frontend bundle or public network.
+The admin delete endpoint removes only the selected complaint and its associated repair/outcome rows. It removes image files only when the path is a generated UUID-named direct citizen upload, no other complaint references it, and the file is under `data/uploads`; dataset and demo assets are retained. The admin detail UI requires typing `DELETE` in a confirmation dialog before sending the existing delete request. This is accidental-deletion protection, not authentication or authorization. Citizen and technician views have no delete action. The project role picker is not authentication.
 
 
 ## Environment configuration
 
-Backend settings are read from the process environment. For local development, copy `.env.example` to `.env` and start Uvicorn with `--env-file .env`. `.env` is ignored by Git. Never use a real token in `.env.example`, source code, or frontend configuration.
+Backend settings are read from the process environment. For local development, copy `.env.example` to `.env` and start Uvicorn with `--env-file .env`. `.env` is ignored by Git.
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `CIVIC_ADMIN_DELETE_TOKEN` | Only to enable complaint deletion | Shared deletion token, minimum 32 characters. This does not authenticate other admin/API routes. |
 | `CORS_ORIGINS` | Set for a separately hosted frontend | Comma-separated exact browser origins. Local defaults allow the Vite dev server only. |
 | `CIVIC_DATA_DIR` | No | Base directory for the SQLite database, uploads, and annotations; defaults to repository `data/`. Set to a persistent mount such as `/var/data` on Render. |
 | `CIVIC_ROAD_GRAPHML` | Required for backend startup if default file is absent | Vellore OSM road graph path; defaults to `data/vellore/vellore_drive_network.graphml`. |
@@ -192,7 +191,7 @@ Backend settings are read from the process environment. For local development, c
 
 By default, SQLite is stored at `data/civic_priority.db` and complaint images/annotations below `data/uploads`. Set `CIVIC_DATA_DIR` to a persistent directory to relocate all three together. Complaint image database keys remain `data/uploads/...` and resolve under the configured data directory, preserving compatibility with existing local records.
 
-The frontend accepts `VITE_API_BASE_URL`, which is public browser configuration and must contain only the API origin, for example `https://api.example.org`. Set it in the Vercel project environment for production. Local development defaults to `http://127.0.0.1:8000`. Never place credentials or deletion tokens in a `VITE_` variable.
+The frontend accepts `VITE_API_BASE_URL`, which is public browser configuration and must contain only the API origin, for example `https://api.example.org`. Set it in the Vercel project environment for production. Local development defaults to `http://127.0.0.1:8000`.
 
 ## Install and run
 
@@ -247,7 +246,7 @@ The React frontend is a Vite static site. In Vercel, set the project root to `fr
 
 Vercel supports Python functions, including FastAPI, but this backend is not a drop-in Vercel function: it has no Vercel function entry adapter, it writes uploads/annotations beside the app, and it stores SQLite locally. Vercel function filesystems are read-only apart from temporary `/tmp` scratch space, so those writes are not durable. Host FastAPI on a persistent service with a compatible Python 3.11 runtime and CPU/memory budget for PyTorch and YOLO26; mount durable storage at the project `data/` path and make the licensed model checkpoint available through persistent/model storage. Configure `CORS_ORIGINS` to the exact Vercel origin. Use a managed database and object storage only after adding and validating the required adapters; the current code does not provide those adapters. See [Vercel's Vite guide](https://vercel.com/docs/frameworks/frontend/vite), [Python runtime docs](https://vercel.com/docs/functions/runtimes/python), and [filesystem guidance](https://vercel.com/docs/functions/runtimes).
 
-The frontend can be deployed independently, but the full application is not production-ready for real citizen data until API authentication/authorization is added. The role selector is only a UI choice, citizen IDs are not proof of identity, and most admin/technician/profile/repair routes currently lack authorization. The deletion token protects only complaint deletion.
+The frontend can be deployed independently, but the full application is not production-ready for real citizen data until API authentication/authorization is added. The role selector is only a UI choice, citizen IDs are not proof of identity, and most admin/technician/profile/repair routes currently lack authorization.
 
 ## Limitations and disclosure
 

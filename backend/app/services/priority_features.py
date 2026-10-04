@@ -67,16 +67,21 @@ def road_features_for(complaint):
 
 
 def recurrence_for(complaint, db):
+    reference = complaint.created_at or datetime.utcnow()
+    if reference.tzinfo is not None:
+        reference = reference.replace(tzinfo=None)
+    cutoff = reference - timedelta(days=DuplicateService.RECENT_DAYS)
     others = (db.query(Complaint).filter(Complaint.id != complaint.id,
-               Complaint.status != "RESOLVED").all())
+               Complaint.status.in_(("OPEN", "ASSIGNED", "IN_PROGRESS")),
+               Complaint.created_at >= cutoff,
+               Complaint.created_at <= reference).all())
     matches = [other for other in others if
         (complaint.road_u is not None and other.road_u == complaint.road_u
          and other.road_v == complaint.road_v and other.road_key == complaint.road_key)
         or DuplicateService.distance_m(complaint.latitude, complaint.longitude,
                                        other.latitude, other.longitude) <= DuplicateService.MAX_DISTANCE_METERS]
     now = complaint.created_at
-    recent = sum(1 for other in matches if now and other.created_at and
-                 0 <= (now - other.created_at).total_seconds() <= 30 * 86400)
+    recent = len(matches)
     return len(matches), recent
 
 
