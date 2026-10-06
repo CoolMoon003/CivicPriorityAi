@@ -891,6 +891,124 @@ select {
 
 /* ---------- technicians ---------- */
 
+.technician-header-actions,
+.technician-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.language-toggle {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 2px;
+  background: var(--bg-panel-raised);
+}
+
+.language-toggle button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-tertiary);
+  padding: 6px 9px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.language-toggle button.active {
+  background: var(--accent-signal-dim);
+  color: var(--text-primary);
+}
+
+.technician-status-help {
+  display: block;
+  margin-top: 4px;
+  max-width: 180px;
+  color: var(--text-tertiary);
+  line-height: 1.35;
+}
+
+.technician-navigate-btn,
+.budget-location-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel-raised);
+  color: var(--accent-signal);
+  padding: 6px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.technician-navigate-btn {
+  margin-top: 6px;
+}
+
+.technician-navigate-btn:hover,
+.budget-location-link:hover {
+  border-color: var(--accent-signal);
+}
+
+.technician-workflow {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  margin-bottom: 14px;
+}
+
+.technician-workflow > span {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.technician-workflow > div {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.technician-workflow strong {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  padding: 5px 8px;
+}
+
+.technician-workflow strong:not(:last-child)::after {
+  content: " →";
+  color: var(--line-strong);
+}
+
+.technician-workflow strong.current {
+  background: var(--accent-signal-dim);
+  border-color: var(--accent-signal);
+  color: var(--text-primary);
+}
+
+.technician-workflow p {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.budget-repair-location {
+  min-width: 150px;
+}
+
+.budget-location-link {
+  margin-top: 5px;
+}
+
 .tech-panel {
   background: var(--bg-panel);
   border: 1px solid var(--line);
@@ -1364,7 +1482,7 @@ tbody tr.row-active {
 .admin-detail-drawer .detail-header .icon-btn { display: none; }
 .admin-detail-drawer .detail-panel { border: 0; padding: 0; background: transparent; }
 @media (max-width: 1250px) { .admin-kpis { grid-template-columns: repeat(3, minmax(0,1fr)); } }
-@media (max-width: 760px) { .role-card-grid { grid-template-columns: 1fr; } .role-card { min-height: 140px; } .admin-page-header, .role-workspace-header { flex-direction: column; align-items: flex-start; } .admin-role-actions { width: 100%; justify-content: space-between; } .admin-kpis { grid-template-columns: repeat(2, minmax(0,1fr)); } .admin-overview-strip { flex-direction: column; } .technician-work-controls { flex-wrap: wrap; } }
+@media (max-width: 760px) { .role-card-grid { grid-template-columns: 1fr; } .role-card { min-height: 140px; } .admin-page-header, .role-workspace-header { flex-direction: column; align-items: flex-start; } .admin-role-actions { width: 100%; justify-content: space-between; } .admin-kpis { grid-template-columns: repeat(2, minmax(0,1fr)); } .admin-overview-strip { flex-direction: column; } .technician-work-controls { flex-wrap: wrap; } .technician-header-actions { width: 100%; justify-content: space-between; } .technician-work-panel .panel-header { align-items: flex-start; flex-direction: column; } .technician-detail-actions { justify-content: flex-start; } .technician-navigate-btn, .budget-location-link { min-height: 34px; } }
 
 @media (max-width: 760px) {
   .admin-app { flex-direction: column; }

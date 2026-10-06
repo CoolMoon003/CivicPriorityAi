@@ -46,7 +46,7 @@ GRAPH_FILE = ROOT / "data" / "vellore" / "vellore_drive_network.graphml"
 ROAD_FEATURES_FILE = ROOT / "data" / "processed" / "vellore_road_features.geojson"
 
 TECHNICIANS = (
-    ("Ravi Kumar (Demo)", "ravi.kumar@technician.demo.invalid"),
+    ("Muthuvel Kumar (Demo)", "ravi.kumar@technician.demo.invalid"),
     ("Suresh Babu (Demo)", "suresh.babu@technician.demo.invalid"),
     ("Arun Prakash (Demo)", "arun.prakash@technician.demo.invalid"),
     ("Vignesh Kumar (Demo)", "vignesh.kumar@technician.demo.invalid"),

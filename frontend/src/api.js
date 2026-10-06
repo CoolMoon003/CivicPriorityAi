@@ -13,6 +13,15 @@ export function complaintImageUrl(path) {
   return `${API_BASE}/uploads/${uploadPart.split("/").map(encodeURIComponent).join("/")}`;
 }
 
+export function complaintNavigationUrl(latitude, longitude) {
+  const lat = Number(latitude);
+  const lon = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    return null;
+  }
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lon}`)}`;
+}
+
 async function request(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, options);
 
@@ -101,6 +110,10 @@ export function verifyRepair(repairId, approved, verificationNotes = "") {
 
 export function getBudgetOptimization(budget) {
   return request(`/admin/optimization?budget=${encodeURIComponent(budget)}`);
+}
+
+export function getCompletedRepairs() {
+  return request("/admin/completed-repairs");
 }
 
 export function submitComplaint({ description, latitude, longitude, image, userId, continueAsSeparate = false }) {

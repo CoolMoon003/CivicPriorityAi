@@ -1,22 +1,44 @@
+const IST_TIMEZONE = "Asia/Kolkata";
+
+function parseBackendTimestamp(value) {
+  if (!value) return null;
+  const text = String(value);
+  return /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)
+    ? new Date(text)
+    : new Date(`${text}Z`);
+}
+
 function timeLabel(iso) {
-  if (!iso) return "";
-  const date = new Date(iso);
-  return date.toLocaleString();
+  const date = parseBackendTimestamp(iso);
+  if (!date || Number.isNaN(date.getTime())) return "Date unavailable";
+  return new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "short",
+    timeStyle: "medium",
+    timeZone: IST_TIMEZONE,
+  }).format(date);
 }
 
 export function ActivityFeed({ complaints }) {
-  const entries = [...complaints]
-    .sort(
-      (a, b) =>
-        new Date(b.created_at || 0).getTime() -
-        new Date(a.created_at || 0).getTime()
+  const entries = complaints
+    .flatMap((complaint) =>
+      (complaint.activity || []).map((event, index) => ({
+        ...event,
+        complaint,
+        key: `${complaint.id}-${event.type}-${event.timestamp}-${index}`,
+      }))
     )
+    .sort((a, b) => {
+      const aTime = parseBackendTimestamp(a.timestamp)?.getTime() || 0;
+      const bTime = parseBackendTimestamp(b.timestamp)?.getTime() || 0;
+      return bTime - aTime;
+    })
     .slice(0, 8);
 
   return (
     <div className="activity-panel">
       <div className="panel-header">
-        <h2>Live Activity</h2>
+        <h2>Latest complaint activity</h2>
+        <p>Stored complaint, repair, and outcome events; not a full audit history.</p>
       </div>
 
       <div className="activity-list">
@@ -24,22 +46,18 @@ export function ActivityFeed({ complaints }) {
           <div className="empty-state">No activity recorded yet.</div>
         )}
 
-        {entries.map((c) => (
-          <div key={c.id} className="activity-item">
+        {entries.map((entry) => (
+          <div key={entry.key} className="activity-item">
             <span
               className={`activity-dot status-${(
-                c.status || "unknown"
+                entry.complaint.status || "unknown"
               ).toLowerCase()}`}
             />
             <div>
               <div className="activity-text">
-                Issue #{c.id} &middot;{" "}
-                {c.assigned_technician_id
-                  ? "assigned, "
-                  : "awaiting assignment, "}
-                status {c.status}
+                Issue #{entry.complaint.id} &middot; {entry.label}
               </div>
-              <div className="activity-time">{timeLabel(c.created_at)}</div>
+              <div className="activity-time">{timeLabel(entry.timestamp)}</div>
             </div>
           </div>
         ))}

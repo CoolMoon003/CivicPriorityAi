@@ -8,6 +8,7 @@ import {
   MapPinned,
   WalletCards,
   Repeat2,
+  CheckCircle2,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { id: "priority-queue", label: "Priority Queue", icon: ListOrdered },
   { id: "technicians", label: "Technicians", icon: Wrench },
   { id: "repairs", label: "Repair Status", icon: Radio },
+  { id: "completed-repairs", label: "Completed Repairs", icon: CheckCircle2 },
   { id: "budget", label: "Budget Optimizer", icon: WalletCards },
   { id: "map", label: "Complaint Map", icon: MapPinned },
   { id: "analytics", label: "Analytics", icon: BarChart3 },

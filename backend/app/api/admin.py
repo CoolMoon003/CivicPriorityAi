@@ -22,6 +22,10 @@ from backend.app.services.annotated_image_service import existing_annotated_path
 from backend.app.services.complaint_deletion import (
     safe_complaint_uploads_to_remove,
 )
+from backend.app.services.complaint_status import (
+    ACTIVE_COMPLAINT_STATUSES,
+    COMPLETED_COMPLAINT_STATUSES,
+)
 
 
 router = APIRouter(
@@ -59,6 +63,7 @@ def _priority_item(complaint: Complaint, db: Session) -> dict:
         "road": {"name": complaint.road_name, "type": complaint.road_type},
         "location": {"latitude": complaint.latitude, "longitude": complaint.longitude},
         "status": complaint.status, "image_path": complaint.image_path,
+        "description": complaint.description,
         "annotated_image_path": existing_annotated_path(complaint.image_path, BASE_DIR),
         "assigned_technician_id": complaint.assigned_technician_id,
         "ai_prediction": priority["ai_prediction"]}
@@ -67,7 +72,9 @@ def _priority_item(complaint: Complaint, db: Session) -> dict:
 @router.get("/priorities")
 def priority_queue(limit: int = Query(100, ge=1, le=500), level: str | None = None,
                    status: str | None = None, db: Session = Depends(get_db)):
-    complaints = db.query(Complaint).all()
+    complaints = db.query(Complaint).filter(
+        Complaint.status.in_(ACTIVE_COMPLAINT_STATUSES)
+    ).all()
     items = [_priority_item(c, db) for c in complaints]
     if level: items = [i for i in items if i["priority_level"] == level.upper()]
     if status: items = [i for i in items if i["status"] == status.upper()]
@@ -113,6 +120,24 @@ def list_complaints(
         )
         .all()
     )
+    complaint_ids = [complaint.id for complaint in complaints]
+    repairs_by_complaint: dict[int, list[Repair]] = {}
+    outcomes_by_complaint: dict[int, list[Outcome]] = {}
+    if complaint_ids:
+        for repair in (
+            db.query(Repair)
+            .filter(Repair.complaint_id.in_(complaint_ids))
+            .order_by(Repair.created_at.asc())
+            .all()
+        ):
+            repairs_by_complaint.setdefault(repair.complaint_id, []).append(repair)
+        for outcome in (
+            db.query(Outcome)
+            .filter(Outcome.complaint_id.in_(complaint_ids))
+            .order_by(Outcome.created_at.asc())
+            .all()
+        ):
+            outcomes_by_complaint.setdefault(outcome.complaint_id, []).append(outcome)
 
     return {
         "count": len(complaints),
@@ -145,6 +170,50 @@ def list_complaints(
                     if complaint.created_at
                     else None
                 ),
+                "updated_at": (
+                    complaint.updated_at.isoformat()
+                    if complaint.updated_at
+                    else None
+                ),
+                "activity": [
+                    *(
+                        [{
+                            "type": "created",
+                            "label": "Complaint created",
+                            "timestamp": complaint.created_at.isoformat(),
+                        }]
+                        if complaint.created_at
+                        else []
+                    ),
+                    *(
+                        [{
+                            "type": "updated",
+                            "label": "Complaint updated",
+                            "timestamp": complaint.updated_at.isoformat(),
+                        }]
+                        if complaint.updated_at
+                        and complaint.updated_at != complaint.created_at
+                        else []
+                    ),
+                    *[
+                        {
+                            "type": "repair_recorded",
+                            "label": "Repair completion recorded",
+                            "timestamp": repair.created_at.isoformat(),
+                        }
+                        for repair in repairs_by_complaint.get(complaint.id, [])
+                        if repair.created_at
+                    ],
+                    *[
+                        {
+                            "type": "outcome",
+                            "label": f"Repair {outcome.result.lower()}",
+                            "timestamp": outcome.created_at.isoformat(),
+                        }
+                        for outcome in outcomes_by_complaint.get(complaint.id, [])
+                        if outcome.created_at
+                    ],
+                ],
             }
             for complaint in complaints
         ],
@@ -415,13 +484,17 @@ def statistics(
     db: Session = Depends(get_db),
 ):
     complaints = db.query(Complaint).all()
+    active_complaints = [
+        complaint for complaint in complaints
+        if (complaint.status or "").upper() in ACTIVE_COMPLAINT_STATUSES
+    ]
 
-    total = len(complaints)
+    total = len(active_complaints)
 
     by_status = {}
     by_priority = {}
 
-    for complaint in complaints:
+    for complaint in active_complaints:
         status = complaint.status or "UNKNOWN"
         priority = complaint.priority or "UNKNOWN"
 
@@ -435,7 +508,7 @@ def statistics(
 
     scores = [
         complaint.priority_score
-        for complaint in complaints
+        for complaint in active_complaints
         if complaint.priority_score is not None
     ]
 
@@ -461,13 +534,23 @@ def dashboard(
 
     by_status = {}
     by_priority = {}
+    active_by_status = {}
+    active_by_priority = {}
 
     for complaint in complaints:
         status = complaint.status or "UNKNOWN"
         priority = complaint.priority or "UNKNOWN"
 
         by_status[status] = by_status.get(status, 0) + 1
-        by_priority[priority] = by_priority.get(priority, 0) + 1
+        if status.upper() in ACTIVE_COMPLAINT_STATUSES:
+            by_priority[priority] = by_priority.get(priority, 0) + 1
+            active_by_status[status] = active_by_status.get(status, 0) + 1
+            active_by_priority[priority] = active_by_priority.get(priority, 0) + 1
+
+    active_complaints = [
+        complaint for complaint in complaints
+        if (complaint.status or "").upper() in ACTIVE_COMPLAINT_STATUSES
+    ]
 
     # Import locally to avoid unnecessary model-loading issues.
     from backend.app.models.repair import Repair
@@ -480,12 +563,12 @@ def dashboard(
 
     scores = [
         c.priority_score
-        for c in complaints
+        for c in active_complaints
         if c.priority_score is not None
     ]
 
     top_complaints = sorted(
-        complaints,
+        active_complaints,
         key=lambda c: c.priority_score or 0,
         reverse=True,
     )[:10]
@@ -497,7 +580,11 @@ def dashboard(
             "This workspace includes pre-existing development/demo records and records explicitly marked SYNTHETIC DEMO; it is not an official government complaint feed."
         ),
         "summary": {
-            "total_complaints": len(complaints),
+            "total_complaints": len(active_complaints),
+            "completed_complaints": sum(
+                1 for complaint in complaints
+                if (complaint.status or "").upper() in COMPLETED_COMPLAINT_STATUSES
+            ),
             "average_priority_score": (
                 round(sum(scores) / len(scores), 2)
                 if scores else 0
@@ -510,6 +597,8 @@ def dashboard(
         },
         "by_status": by_status,
         "by_priority": by_priority,
+        "active_by_status": active_by_status,
+        "active_by_priority": active_by_priority,
         "top_complaints": [
             {
                 "id": c.id,
@@ -522,6 +611,64 @@ def dashboard(
                 "longitude": c.longitude,
             }
             for c in top_complaints
+        ],
+    }
+
+
+@router.get("/completed-repairs")
+def completed_repairs(db: Session = Depends(get_db)):
+    complaints = (
+        db.query(Complaint)
+        .filter(Complaint.status.in_(COMPLETED_COMPLAINT_STATUSES))
+        .order_by(Complaint.updated_at.desc(), Complaint.created_at.desc())
+        .all()
+    )
+    complaint_ids = [complaint.id for complaint in complaints]
+    repairs_by_complaint: dict[int, Repair] = {}
+    if complaint_ids:
+        repairs = (
+            db.query(Repair)
+            .filter(Repair.complaint_id.in_(complaint_ids))
+            .order_by(Repair.created_at.desc())
+            .all()
+        )
+        for repair in repairs:
+            repairs_by_complaint.setdefault(repair.complaint_id, repair)
+
+    technician_ids = {
+        repair.technician_id
+        for repair in repairs_by_complaint.values()
+        if repair.technician_id is not None
+    }
+    technicians = {
+        technician.id: technician.name
+        for technician in db.query(User).filter(User.id.in_(technician_ids)).all()
+    } if technician_ids else {}
+
+    return {
+        "count": len(complaints),
+        "repairs": [
+            {
+                "complaint_id": complaint.id,
+                "road_name": complaint.road_name,
+                "road_type": complaint.road_type,
+                "damage": complaint_damage_fields(complaint),
+                "priority": complaint.priority,
+                "priority_score": complaint.priority_score,
+                "status": complaint.status,
+                "technician_name": (
+                    technicians.get(repairs_by_complaint[complaint.id].technician_id)
+                    if complaint.id in repairs_by_complaint
+                    else None
+                ),
+                "completed_at": (
+                    repairs_by_complaint[complaint.id].completed_at.isoformat()
+                    if complaint.id in repairs_by_complaint
+                    and repairs_by_complaint[complaint.id].completed_at
+                    else None
+                ),
+            }
+            for complaint in complaints
         ],
     }
 
@@ -820,6 +967,10 @@ def optimize_repair_budget(
                 "complaint_id": c.complaint_id,
                 "image_path": image_paths.get(c.complaint_id),
                 "annotated_image_path": annotated_image_paths.get(c.complaint_id),
+                "latitude": next((item.latitude for item in complaints if item.id == c.complaint_id), None),
+                "longitude": next((item.longitude for item in complaints if item.id == c.complaint_id), None),
+                "road_name": next((item.road_name for item in complaints if item.id == c.complaint_id), None),
+                "road_type": next((item.road_type for item in complaints if item.id == c.complaint_id), None),
                 "impact_score": c.impact_score,
                 "estimated_cost": c.estimated_cost,
                 "cost_is_estimated": c.cost_is_estimated,

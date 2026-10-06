@@ -4,9 +4,10 @@ import {
     Layers,
     Loader2,
     AlertTriangle,
+    MapPin,
 } from "lucide-react";
 
-import { complaintImageUrl as imageUrl, assignTechnician, getBudgetOptimization } from "../api.js";
+import { complaintImageUrl as imageUrl, complaintNavigationUrl, assignTechnician, getBudgetOptimization } from "../api.js";
 import { PriorityBadge } from "./StatusBadge.jsx";
 import { damageSeverityLabel, detectionStateLabel, roadDamageLabel } from "../utils/complaintLabels.js";
 
@@ -199,6 +200,15 @@ export function BudgetOptimizerPanel({ technicians = [], onAssigned }) {
                                         <div>
                                             <span>Impact score</span>
                                             <strong>{r.impact_score}</strong>
+                                        </div>
+                                        <div className="budget-repair-location">
+                                            <span>Location</span>
+                                            <strong>{r.latitude == null || r.longitude == null ? "Unavailable" : `${Number(r.latitude).toFixed(4)}, ${Number(r.longitude).toFixed(4)}`}</strong>
+                                            {complaintNavigationUrl(r.latitude, r.longitude) && <a className="budget-location-link" href={complaintNavigationUrl(r.latitude, r.longitude)} target="_blank" rel="noreferrer"><MapPin size={13} />Navigate</a>}
+                                        </div>
+                                        <div>
+                                            <span>Road</span>
+                                            <strong>{r.road_name || r.road_type || "Unknown road"}</strong>
                                         </div>
                                         <div>
                                             <span>

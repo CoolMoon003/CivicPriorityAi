@@ -48,6 +48,34 @@ function MapPanelView({ complaints, selectedId, onSelect }) {
   const markersWithCoords = useMemo(() => complaints.filter(
     (c) => c.location?.latitude != null && c.location?.longitude != null
   ), [complaints]);
+  const markerPositions = useMemo(() => {
+    const positions = new Map();
+    const grouped = new Map();
+    markersWithCoords.forEach((complaint) => {
+      const key = `${complaint.location.latitude},${complaint.location.longitude}`;
+      const group = grouped.get(key) || [];
+      group.push(complaint);
+      grouped.set(key, group);
+    });
+    grouped.forEach((group) => {
+      group.forEach((complaint, index) => {
+        if (group.length === 1) {
+          positions.set(complaint.id, [
+            complaint.location.latitude,
+            complaint.location.longitude,
+          ]);
+          return;
+        }
+        const angle = (2 * Math.PI * index) / group.length;
+        const radius = 0.00012;
+        positions.set(complaint.id, [
+          complaint.location.latitude + Math.sin(angle) * radius,
+          complaint.location.longitude + Math.cos(angle) * radius,
+        ]);
+      });
+    });
+    return positions;
+  }, [markersWithCoords]);
 
   const selectedComplaint = markersWithCoords.find(
     (c) => c.id === selectedId
@@ -84,10 +112,7 @@ function MapPanelView({ complaints, selectedId, onSelect }) {
             return (
               <CircleMarker
                 key={complaint.id}
-                center={[
-                  complaint.location.latitude,
-                  complaint.location.longitude,
-                ]}
+                center={markerPositions.get(complaint.id)}
                 radius={isSelected ? 10 : 7}
                 pathOptions={{
                   color: levelColor(level),

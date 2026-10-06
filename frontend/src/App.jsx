@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, ClipboardList, Clock3, Radar, ShieldCheck, Users, X } from "lucide-react";
 import "./App.css";
-import { getDashboard, getComplaints, getPriorities, getTechnicians, assignTechnician as apiAssignTechnician, deleteComplaint as apiDeleteComplaint, updateComplaintStatus as apiUpdateStatus } from "./api.js";
+import { getDashboard, getComplaints, getPriorities, getCompletedRepairs, getTechnicians, assignTechnician as apiAssignTechnician, deleteComplaint as apiDeleteComplaint, updateComplaintStatus as apiUpdateStatus } from "./api.js";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { TopBar } from "./components/TopBar.jsx";
 import { StatCard } from "./components/StatCard.jsx";
@@ -12,6 +12,7 @@ import { TechnicianPanel } from "./components/TechnicianPanel.jsx";
 import { ActivityFeed } from "./components/ActivityFeed.jsx";
 import { AnalyticsPanel } from "./components/AnalyticsPanel.jsx";
 import { RepairPipeline } from "./components/RepairPipeline.jsx";
+import { CompletedRepairs } from "./components/CompletedRepairs.jsx";
 import { BudgetOptimizerPanel } from "./components/BudgetOptimizerPanel.jsx";
 import { CitizenDashboard } from "./pages/CitizenDashboard.jsx";
 import { RoleSelection } from "./pages/RoleSelection.jsx";
@@ -27,6 +28,8 @@ function App() {
   const [view, setView] = useState("roles");
   const [dashboard, setDashboard] = useState(null);
   const [complaints, setComplaints] = useState([]);
+  const [activePriorityItems, setActivePriorityItems] = useState([]);
+  const [completedRepairs, setCompletedRepairs] = useState([]);
   const [technicians, setTechnicians] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -64,8 +67,8 @@ function App() {
     if (background) setRefreshing(true);
     else setLoading(true);
     try {
-      const [dashboardData, complaintsData, techniciansData, prioritiesData] = await Promise.all([
-        getDashboard(), getComplaints(), getTechnicians(), getPriorities(),
+      const [dashboardData, complaintsData, techniciansData, prioritiesData, completedRepairsData] = await Promise.all([
+        getDashboard(), getComplaints(), getTechnicians(), getPriorities(), getCompletedRepairs(),
       ]);
       setDashboard(dashboardData);
       const priorityById = new Map((prioritiesData.items || []).map((item) => [item.complaint_id, item]));
@@ -77,6 +80,18 @@ function App() {
           explanations: evidence.explanations }, ai_prediction: evidence.ai_prediction } : complaint;
       });
       setComplaints((previous) => sameComplaints(previous, next) ? previous : next);
+      setActivePriorityItems((prioritiesData.items || []).map((item) => ({
+        id: item.complaint_id,
+        location: item.location,
+        road: item.road,
+        damage: item.damage,
+        priority: { score: item.priority_score, level: item.priority_level },
+        status: item.status,
+        description: item.description,
+        assigned_technician_id: item.assigned_technician_id,
+        ai_prediction: item.ai_prediction,
+      })));
+      setCompletedRepairs(completedRepairsData.repairs || []);
       setTechnicians((previous) => JSON.stringify(previous) === JSON.stringify(techniciansData.technicians || []) ? previous : (techniciansData.technicians || []));
       setConnected(true);
       setError("");
@@ -131,6 +146,12 @@ function App() {
       && (statusFilter === "ALL" || complaint.status === statusFilter)
       && (priorityFilter === "ALL" || complaint.priority?.level === priorityFilter);
   }), [complaints, search, statusFilter, priorityFilter]);
+  const visibleActiveComplaints = useMemo(() => activePriorityItems.filter((complaint) => {
+    const text = `${complaint.id} ${complaint.road?.name || ""} ${complaint.damage?.type || ""} ${complaint.description || ""}`.toLowerCase();
+    return (!search || text.includes(search.toLowerCase()))
+      && (statusFilter === "ALL" || complaint.status === statusFilter)
+      && (priorityFilter === "ALL" || complaint.priority?.level === priorityFilter);
+  }), [activePriorityItems, search, statusFilter, priorityFilter]);
 
   if (view === "roles") return <RoleSelection onSelect={selectRole} />;
   if (view === "citizen") return <CitizenDashboard onBack={switchRole} />;
@@ -139,8 +160,9 @@ function App() {
 
   const byStatus = dashboard?.by_status || {};
   const byPriority = dashboard?.by_priority || {};
-  const pending = byStatus.OPEN || 0;
-  const inProgress = (byStatus.ASSIGNED || 0) + (byStatus.IN_PROGRESS || 0);
+  const activeByStatus = dashboard?.active_by_status || {};
+  const pending = (activeByStatus.OPEN || 0) + (activeByStatus.PENDING || 0);
+  const inProgress = (activeByStatus.ASSIGNED || 0) + (activeByStatus.IN_PROGRESS || 0);
   const resolved = (byStatus.REPAIRED || 0) + (byStatus.VERIFIED || 0) + (byStatus.RESOLVED || 0);
   const highPriority = (byPriority.HIGH || 0) + (byPriority.CRITICAL || 0);
   const selectedComplaint = complaints.find((complaint) => complaint.id === selectedId);
@@ -173,7 +195,7 @@ function App() {
 
         <section id="priority-queue" ref={(node) => { sectionRefs.current["priority-queue"] = node; }} className="admin-section">
           <SectionHeading eyebrow="Repair planning" title="Priority Repair Queue" description="Highest current priority first, with assignment and detail actions." />
-          <PriorityQueue complaints={complaints} selectedId={selectedId} onSelect={setSelectedId} technicians={technicians} onAssign={handleAssign} />
+          <PriorityQueue complaints={visibleActiveComplaints} selectedId={selectedId} onSelect={setSelectedId} technicians={technicians} onAssign={handleAssign} />
         </section>
 
         <section id="road-issues" ref={(node) => { sectionRefs.current["road-issues"] = node; }} className="admin-section">
@@ -192,6 +214,11 @@ function App() {
           <RepairPipeline byStatus={byStatus} />
         </section>
 
+        <section id="completed-repairs" ref={(node) => { sectionRefs.current["completed-repairs"] = node; }} className="admin-section">
+          <SectionHeading eyebrow="History" title="Completed Repairs" description="Repaired complaints remain available as historical records." />
+          <CompletedRepairs repairs={completedRepairs} onSelect={setSelectedId} />
+        </section>
+
         <section id="budget" ref={(node) => { sectionRefs.current.budget = node; }} className="admin-section">
           <SectionHeading eyebrow="Budget allocation" title="Repair Budget Optimizer" description="Existing budget-constrained repair recommendations." />
           <BudgetOptimizerPanel technicians={technicians} onAssigned={() => loadAll(true)} />
@@ -199,7 +226,7 @@ function App() {
 
         <section id="map" ref={(node) => { sectionRefs.current.map = node; }} className="admin-section">
           <SectionHeading eyebrow="Geographic view" title="Complaint Map" description="Vellore map with selectable complaint locations." />
-          <MapPanel complaints={complaints} selectedId={selectedId} onSelect={setSelectedId} />
+          <MapPanel complaints={visibleActiveComplaints} selectedId={selectedId} onSelect={setSelectedId} />
         </section>
 
         <section id="analytics" ref={(node) => { sectionRefs.current.analytics = node; }} className="admin-section">
@@ -227,6 +254,8 @@ function sameComplaints(a, b) {
       && item.damage?.type === next.damage?.type && item.damage?.severity === next.damage?.severity
       && item.assigned_technician_id === next.assigned_technician_id
       && item.location?.latitude === next.location?.latitude && item.location?.longitude === next.location?.longitude
+      && item.created_at === next.created_at && item.updated_at === next.updated_at
+      && JSON.stringify(item.activity || []) === JSON.stringify(next.activity || [])
       && item.ai_prediction?.model_status === next.ai_prediction?.model_status
       && item.ai_prediction?.predicted_priority_score === next.ai_prediction?.predicted_priority_score
       && item.ai_prediction?.model_version === next.ai_prediction?.model_version;
